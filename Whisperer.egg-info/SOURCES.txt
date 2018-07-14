@@ -1,0 +1,7 @@
+whisperer.py
+Whisperer.egg-info/PKG-INFO
+Whisperer.egg-info/SOURCES.txt
+Whisperer.egg-info/dependency_links.txt
+Whisperer.egg-info/entry_points.txt
+Whisperer.egg-info/requires.txt
+Whisperer.egg-info/top_level.txt
