@@ -12,10 +12,26 @@ from email.mime.text import MIMEText
 from email.header import Header
 from markdown2 import Markdown
 
-@click.command()
+@click.group()
+def cli():
+    pass
+
+@cli.command(help='配置邮箱服务器')
+def server():
+    pass
+
+@cli.command(help='配置邮箱授权')
+@click.argument('email', type=click.STRING)
+@click.argument('password', type=click.STRING)
+def auth(email, password):
+    w = Whisperer()
+    w.update_auth(email, password)
+    click.echo('更新完成!')
+
+@cli.command(help='发送指定邮件')
 @click.argument('target')
 @click.option('--debug', type=click.BOOL, default=False, help='是否为DEBUG模式.')
-def cli(target, debug):
+def send(target, debug):
     now = datetime.now()
     year = now.strftime('%Y')
     week = now.strftime('%U')
@@ -28,9 +44,10 @@ def cli(target, debug):
         """)
         f.close()
     os.system(f'open {file_path}')
-    flag = input('请问你编辑完成了么(yes/no)?\n')
-    while flag != 'yes':
-        flag = input(r'请问你编辑完成了么(yes/no)?\n')
+    md_prompet = '请问你编辑完成了么(YES or NO)?\n'
+    flag = input(md_prompet)
+    while flag.lower() != 'yes':
+        flag = input(md_prompet)
     whisperer = Whisperer()
     whisperer.run(target, file_path, debug)
     click.echo('发送成功!')
@@ -46,7 +63,7 @@ class Whisperer():
     # 自己的密码
     my_email_password = None
     # 配置文件名
-    config_name = '.whisperer.ini'
+    config_name = 'config.ini'
     # HOME目录
     workspace = str(Path.home()) + '/.whisperer'
     # 配置解析
@@ -76,7 +93,20 @@ class Whisperer():
             self.my_email_password = self.cfg.get('base', 'my_email_password')
         logging.info(f'当前的邮箱地址: {self.my_email_address}')
         logging.info(f'当前的邮箱密码: {self.my_email_password}')
-    
+
+    def update_auth(self, email, password):
+        name = self.config_name
+        path = self.workspace + f'/{name}'
+        if os.path.exists(path) is False:
+            os.mkdir(self.workspace)
+            self.cfg.add_section('base')
+        else:
+            self.cfg.read(path)
+        self.cfg.set('base', 'my_email_address', email)
+        self.cfg.set('base', 'my_email_password', password)
+        with open(path, 'w+') as f:
+            self.cfg.write(f);
+        
     def build_email(self, html):
         message = MIMEText(html, 'html', 'utf-8')
         message['From'] = formataddr(['张斌辉', self.my_email_address])
