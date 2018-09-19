@@ -5,6 +5,7 @@ import logging
 import sys
 import click
 import gitlab
+import re
 from pathlib import Path
 from datetime import datetime
 from datetime import timedelta
@@ -50,7 +51,6 @@ def send(target, debug):
 ### 个人提升
         """)
         f.close()
-    commits = whisperer.commit_from_lastweek()
     whisperer.append_commit_report(file_path)
     os.system(f'open {file_path}')
     md_prompet = '请问你编辑完成了么(YES or NO)?\n'
@@ -138,13 +138,19 @@ class Whisperer():
         click.echo('正在追加检索本周所有的commit...')
         commits = self.commit_from_lastweek()
         commit_count = len(commits)
+        code_line = 0
+        commit_detail_array = []
         with open(path, 'a') as f:
+            for commit in commits:
+                commit_detail_array.append(f'{commit.short_id}|{commit.message.rstrip()}|{commit.committed_date} \n')
+                for item_diff in commit.diff():
+                    code_line += self.parser_diff_add_mode(item_diff["diff"])
             f.write('\n### Commit 统计 \n')
-            f.write(f'本周共计产出{commit_count}个commit \n')
+            f.write(f'本周共计产出 **{commit_count}** 个commit，贡献 **{code_line}** 行代码。 \n')
             f.write('\n hash | message | date \n')
             f.write('--- | --- | ---\n')
-            for commit in commits:
-                f.write(f'{commit.short_id}|{commit.message.rstrip()}|{commit.committed_date} \n')
+            for commit_detail in commit_detail_array:
+                f.write(commit_detail)
 
     def update_auth(self, email, password):
         name = self.config_name
@@ -180,6 +186,15 @@ class Whisperer():
         server.login(self.my_email_address, self.my_email_password)
         server.sendmail(self.my_email_address, [to_address], message.as_string())
         server.quit()
+
+    def parser_diff_add_mode(self, diff):
+        lines = diff.split('\n')
+        add_re = re.compile(r'^\+.+')
+        add_line_number = 0
+        for line in lines:
+            if not re.match(add_re, line):
+                add_line_number += 1
+        return add_line_number
 
     def run(self, target, source, debug):
         self.debug = debug
