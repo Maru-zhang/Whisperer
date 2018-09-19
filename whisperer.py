@@ -15,6 +15,11 @@ from email.mime.text import MIMEText
 from email.header import Header
 from markdown2 import Markdown
 
+MY_GITLAB_HOST_KEY = "my_gitlab_host"
+MY_EMAIL_ADDRESS_KEY = "my_email_address"
+MY_EMAIL_PASSWORD_KEY = "my_email_password"
+MY_NICKNAME_KEY = "my_email_nickname"
+
 @click.group()
 def cli():
     pass
@@ -72,6 +77,8 @@ class Whisperer():
     my_email_address = None
     # 自己的密码
     my_email_password = None
+    # 发送邮件所用的昵称
+    my_nickname = None
     # 配置文件名
     config_name = 'config.ini'
     # HOME目录
@@ -101,17 +108,20 @@ class Whisperer():
             self.my_gitlab_host = input('请输入您gitlab的地址: ')
             self.my_email_address = input('请输入您的邮箱地址: ')
             self.my_email_password = input('请输入您的邮箱密码: ')
+            self.my_nickname = input('请输入您的昵称(发送邮件所用): ')
             self.cfg.add_section('base')
-            self.cfg.set('base', 'my_gitlab_host', self.my_gitlab_host)
-            self.cfg.set('base', 'my_email_address', self.my_email_address)
-            self.cfg.set('base', 'my_email_password', self.my_email_password)
+            self.cfg.set('base', MY_GITLAB_HOST_KEY, self.my_gitlab_host)
+            self.cfg.set('base', MY_EMAIL_ADDRESS_KEY, self.my_email_address)
+            self.cfg.set('base', MY_EMAIL_PASSWORD_KEY, self.my_email_password)
+            self.cfg.set('base', MY_NICKNAME_KEY, self.my_nickname)
             with open(path, 'w+') as f:
                 self.cfg.write(f)
         else:
             self.cfg.read(path)
-            self.my_gitlab_host = self.cfg.get('base', 'my_gitlab_host')
-            self.my_email_address = self.cfg.get('base', 'my_email_address')
-            self.my_email_password = self.cfg.get('base', 'my_email_password')
+            self.my_gitlab_host = self.cfg.get('base', MY_GITLAB_HOST_KEY)
+            self.my_email_address = self.cfg.get('base', MY_EMAIL_ADDRESS_KEY)
+            self.my_email_password = self.cfg.get('base', MY_EMAIL_PASSWORD_KEY)
+            self.my_nickname = self.cfg.get('base', MY_NICKNAME_KEY)
         logging.info(f'当前的gitlab域名: {self.my_gitlab_host}')
         logging.info(f'当前的邮箱地址: {self.my_email_address}')
         logging.info(f'当前的邮箱密码: {self.my_email_password}')
@@ -142,13 +152,14 @@ class Whisperer():
         commit_detail_array = []
         with open(path, 'a') as f:
             for commit in commits:
-                commit_detail_array.append(f'{commit.short_id}|{commit.message.rstrip()}|{commit.committed_date} \n')
+                commit_detail_array.append(f'| {commit.short_id}|{commit.message.rstrip()}|{commit.committed_date} |\n')
                 for item_diff in commit.diff():
                     code_line += self.parser_diff_add_mode(item_diff["diff"])
             f.write('\n### Commit 统计 \n')
             f.write(f'本周共计产出 **{commit_count}** 个commit，贡献 **{code_line}** 行代码。 \n')
-            f.write('\n hash | message | date \n')
-            f.write('--- | --- | ---\n')
+            f.write('\n---\n')
+            f.write('\n| hash | message | date |\n')
+            f.write('| --- | --- | --- |\n')
             for commit_detail in commit_detail_array:
                 f.write(commit_detail)
 
@@ -166,9 +177,10 @@ class Whisperer():
             self.cfg.write(f);
         
     def build_email(self, html):
+        nickname = self.my_nickname
         message = MIMEText(html, 'html', 'utf-8')
-        message['From'] = formataddr(['张斌辉', self.my_email_address])
-        subject = '张斌辉 周报'
+        message['From'] = formataddr([f'{nickname}', self.my_email_address])
+        subject = f'{nickname} 周报'
         message['Subject'] = Header(subject, 'utf-8')
         return message
     
@@ -176,7 +188,7 @@ class Whisperer():
         html = None
         with open(path, 'r+') as f:
             content = f.read()
-            marker = Markdown()
+            marker = Markdown(extras=["tables"])
             html = marker.convert(content)
         return self.build_email(html)
 
