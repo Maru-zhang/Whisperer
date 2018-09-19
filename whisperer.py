@@ -4,8 +4,10 @@ import os
 import logging
 import sys
 import click
+import gitlab
 from pathlib import Path
 from datetime import datetime
+from datetime import timedelta
 from email.utils import formataddr
 from configparser import ConfigParser
 from email.mime.text import MIMEText
@@ -14,6 +16,10 @@ from markdown2 import Markdown
 
 @click.group()
 def cli():
+    pass
+
+@cli.command()
+def test():
     pass
 
 @cli.command(help='配置邮箱服务器')
@@ -32,6 +38,7 @@ def auth(email, password):
 @click.argument('target')
 @click.option('--debug', type=click.BOOL, default=False, help='是否为DEBUG模式.')
 def send(target, debug):
+    whisperer = Whisperer()
     now = datetime.now()
     year = now.strftime('%Y')
     week = now.strftime('%U')
@@ -43,12 +50,13 @@ def send(target, debug):
 ### 个人提升
         """)
         f.close()
+    commits = whisperer.commit_from_lastweek()
+    whisperer.append_commit_report(file_path)
     os.system(f'open {file_path}')
     md_prompet = '请问你编辑完成了么(YES or NO)?\n'
     flag = input(md_prompet)
     while flag.lower() != 'yes':
         flag = input(md_prompet)
-    whisperer = Whisperer()
     whisperer.run(target, file_path, debug)
     click.echo('发送成功!')
 
@@ -58,6 +66,8 @@ class Whisperer():
     smtp_server = 'smtp.mxhichina.com'
     # smtp端口
     smtp_port = 465
+    # gitlab域名
+    my_gitlab_host = None
     # 自己的邮件
     my_email_address = None
     # 自己的密码
@@ -70,6 +80,13 @@ class Whisperer():
     cfg = ConfigParser()
     # 是否处于DEBUG
     debug = False
+    # 现在的时间
+    now = datetime.now()
+    # 过去一周开始的时间
+    start_time = datetime.now() - timedelta(days=7)
+
+    def __init__(self):
+        self.prepare_setup()
 
     def prepare_setup(self):
         if self.debug is True:
@@ -79,20 +96,55 @@ class Whisperer():
         name = self.config_name
         path = self.workspace + f'/{name}'
         if os.path.exists(path) is False:
-            os.mkdir(self.workspace)
+            if not os.path.exists(self.workspace):
+                os.mkdir(self.workspace)
+            self.my_gitlab_host = input('请输入您gitlab的地址: ')
             self.my_email_address = input('请输入您的邮箱地址: ')
             self.my_email_password = input('请输入您的邮箱密码: ')
             self.cfg.add_section('base')
+            self.cfg.set('base', 'my_gitlab_host', self.my_gitlab_host)
             self.cfg.set('base', 'my_email_address', self.my_email_address)
             self.cfg.set('base', 'my_email_password', self.my_email_password)
             with open(path, 'w+') as f:
                 self.cfg.write(f)
         else:
             self.cfg.read(path)
+            self.my_gitlab_host = self.cfg.get('base', 'my_gitlab_host')
             self.my_email_address = self.cfg.get('base', 'my_email_address')
             self.my_email_password = self.cfg.get('base', 'my_email_password')
+        logging.info(f'当前的gitlab域名: {self.my_gitlab_host}')
         logging.info(f'当前的邮箱地址: {self.my_email_address}')
         logging.info(f'当前的邮箱密码: {self.my_email_password}')
+
+    def commit_from_lastweek(self):
+        click.echo('正在链接gitlab服务...')
+        gl = gitlab.Gitlab(self.my_gitlab_host, email=self.my_email_address, password=self.my_email_password)
+        gl.auth()
+        start_year = self.start_time.strftime('%Y')
+        start_month = self.start_time.strftime('%m')
+        start_day = self.start_time.strftime('%d')
+        events = gl.events.list(after=f'{start_year}-{start_month}-{start_day}')
+        now = datetime.now()
+        start = now - timedelta(days=7)
+        all_commmits = []
+        for item in events:
+            project = gl.projects.get(item.project_id, lazy=True)
+            commits = project.commits.list(since=f'{start_year}-{start_month}-{start_day}T00:00:00Z')
+            all_commmits += commits
+        all_my_commit = list(filter(lambda x: x.author_email == self.my_email_address, all_commmits))
+        return all_my_commit
+
+    def append_commit_report(self, path):
+        click.echo('正在追加检索本周所有的commit...')
+        commits = self.commit_from_lastweek()
+        commit_count = len(commits)
+        with open(path, 'a') as f:
+            f.write('\n### Commit 统计 \n')
+            f.write(f'本周共计产出{commit_count}个commit \n')
+            f.write('\n hash | message | date \n')
+            f.write('--- | --- | ---\n')
+            for commit in commits:
+                f.write(f'{commit.short_id}|{commit.message.rstrip()}|{commit.committed_date} \n')
 
     def update_auth(self, email, password):
         name = self.config_name
@@ -131,6 +183,5 @@ class Whisperer():
 
     def run(self, target, source, debug):
         self.debug = debug
-        self.prepare_setup()
         email = self.build_email_from_markdown(source)
         self.send_email(target, email)
