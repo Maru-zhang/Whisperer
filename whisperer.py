@@ -5,7 +5,10 @@ import logging
 import sys
 import click
 import gitlab
+import datetime
 import re
+from dateutil.parser import parse
+from datetime import datetime
 from pathlib import Path
 from datetime import datetime
 from datetime import timedelta
@@ -152,7 +155,8 @@ class Whisperer():
         commit_detail_array = []
         with open(path, 'a') as f:
             for commit in commits:
-                commit_detail_array.append(f'| {commit.short_id}|{commit.message.rstrip()}|{commit.committed_date} |\n')
+                time = parse(commit.committed_date).strftime('%x %X')
+                commit_detail_array.append(f'| {commit.short_id}|{commit.message.rstrip()}|{time} |\n')
                 for item_diff in commit.diff():
                     code_line += self.parser_diff_add_mode(item_diff["diff"])
             f.write('\n### Commit 统计 \n')
