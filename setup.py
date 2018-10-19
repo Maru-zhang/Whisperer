@@ -5,7 +5,7 @@ setup(
     version='0.1.0',
     author='zhangbinhui',
     py_modules=['whisperer'], 
-    install_requires=['Click', 'markdown2'],
+    install_requires=['Click', 'markdown2', 'python-gitlab'],
     entry_points='''
         [console_scripts]
         wsp=whisperer:cli

@@ -7,6 +7,7 @@ import click
 import gitlab
 import datetime
 import re
+from dateutil import parser
 from dateutil.parser import parse
 from datetime import datetime
 from pathlib import Path
@@ -136,15 +137,20 @@ class Whisperer():
         start_year = self.start_time.strftime('%Y')
         start_month = self.start_time.strftime('%m')
         start_day = self.start_time.strftime('%d')
+        click.echo(f'正在检索自从{start_year}年{start_month}月{start_day}日开始的事件...')
         events = gl.events.list(after=f'{start_year}-{start_month}-{start_day}')
         now = datetime.now()
         start = now - timedelta(days=7)
         all_commmits = []
+        all_projectIds = set([])
         for item in events:
-            project = gl.projects.get(item.project_id, lazy=True)
+            all_projectIds.add(item.project_id)
+        for project_id in all_projectIds:
+            project = gl.projects.get(project_id, lazy=True)
             commits = project.commits.list(since=f'{start_year}-{start_month}-{start_day}T00:00:00Z')
             all_commmits += commits
         all_my_commit = list(filter(lambda x: x.author_email == self.my_email_address, all_commmits))
+        all_my_commit.sort(key=lambda x:x.authored_date)
         return all_my_commit
 
     def append_commit_report(self, path):
@@ -155,7 +161,7 @@ class Whisperer():
         commit_detail_array = []
         with open(path, 'a') as f:
             for commit in commits:
-                time = parse(commit.committed_date).strftime('%x %X')
+                time = parse(commit.authored_date).strftime('%x %X')
                 commit_detail_array.append(f'| {commit.short_id}|{commit.message.rstrip()}|{time} |\n')
                 for item_diff in commit.diff():
                     code_line += self.parser_diff_add_mode(item_diff["diff"])
