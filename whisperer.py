@@ -150,7 +150,7 @@ class Whisperer():
             commits = project.commits.list(since=f'{start_year}-{start_month}-{start_day}T00:00:00Z')
             all_commmits += commits
         all_my_commit = list(filter(lambda x: x.author_email == self.my_email_address, all_commmits))
-        all_my_commit.sort(key=lambda x:x.authored_date)
+        all_my_commit.sort(key=lambda x:parser.parse(x.authored_date).date())
         return all_my_commit
 
     def append_commit_report(self, path):
