@@ -20,6 +20,7 @@ from email.header import Header
 from markdown2 import Markdown
 
 MY_GITLAB_HOST_KEY = "my_gitlab_host"
+MY_GITLAB_PRIVATE_KEY = "my_gitlab_private_key"
 MY_EMAIL_ADDRESS_KEY = "my_email_address"
 MY_EMAIL_PASSWORD_KEY = "my_email_password"
 MY_NICKNAME_KEY = "my_email_nickname"
@@ -43,6 +44,14 @@ def auth(email, password):
     w = Whisperer()
     w.update_auth(email, password)
     click.echo('更新完成!')
+
+@cli.command(help='配置Gitlab的Private-Key授权')
+@click.argument('host', type=click.STRING)
+@click.argument('key', type=click.STRING)
+def auth_gitlab(host, key):
+    w = Whisperer()
+    w.auth_gitlab(host, key)
+    click.echo('更新完成')
 
 @cli.command(help='发送指定邮件')
 @click.argument('target')
@@ -77,6 +86,8 @@ class Whisperer():
     smtp_port = 465
     # gitlab域名
     my_gitlab_host = None
+    # gitlab private key
+    my_gitlab_private_key = None
     # 自己的邮件
     my_email_address = None
     # 自己的密码
@@ -110,11 +121,13 @@ class Whisperer():
             if not os.path.exists(self.workspace):
                 os.mkdir(self.workspace)
             self.my_gitlab_host = input('请输入您gitlab的地址: ')
+            self.my_gitlab_private_key = input('请输入您gitlab的 private key')
             self.my_email_address = input('请输入您的邮箱地址: ')
             self.my_email_password = input('请输入您的邮箱密码: ')
             self.my_nickname = input('请输入您的昵称(发送邮件所用): ')
             self.cfg.add_section('base')
             self.cfg.set('base', MY_GITLAB_HOST_KEY, self.my_gitlab_host)
+            self.cfg.set('base', MY_GITLAB_PRIVATE_KEY, self.my_gitlab_private_key)
             self.cfg.set('base', MY_EMAIL_ADDRESS_KEY, self.my_email_address)
             self.cfg.set('base', MY_EMAIL_PASSWORD_KEY, self.my_email_password)
             self.cfg.set('base', MY_NICKNAME_KEY, self.my_nickname)
@@ -123,6 +136,7 @@ class Whisperer():
         else:
             self.cfg.read(path)
             self.my_gitlab_host = self.cfg.get('base', MY_GITLAB_HOST_KEY)
+            self.my_gitlab_private_key = self.cfg.get('base', MY_GITLAB_PRIVATE_KEY)
             self.my_email_address = self.cfg.get('base', MY_EMAIL_ADDRESS_KEY)
             self.my_email_password = self.cfg.get('base', MY_EMAIL_PASSWORD_KEY)
             self.my_nickname = self.cfg.get('base', MY_NICKNAME_KEY)
@@ -132,7 +146,7 @@ class Whisperer():
 
     def commit_from_lastweek(self):
         click.echo('正在链接gitlab服务...')
-        gl = gitlab.Gitlab(self.my_gitlab_host, email=self.my_email_address, password=self.my_email_password)
+        gl = gitlab.Gitlab(self.my_gitlab_host, private_token=self.my_gitlab_private_key)
         gl.auth()
         start_year = self.start_time.strftime('%Y')
         start_month = self.start_time.strftime('%m')
@@ -183,6 +197,19 @@ class Whisperer():
             self.cfg.read(path)
         self.cfg.set('base', 'my_email_address', email)
         self.cfg.set('base', 'my_email_password', password)
+        with open(path, 'w+') as f:
+            self.cfg.write(f);
+
+    def update_private_key(self, host, private_key):
+        name = self.config_name
+        path = self.workspace + f'/{name}'
+        if os.path.exists(path) is False:
+            os.mkdir(self.workspace)
+            self.cfg.add_section('base')
+        else:
+            self.cfg.read(path)
+        self.cfg.set('base', MY_GITLAB_HOST_KEY, host)
+        self.cfg.set('base', MY_GITLAB_PRIVATE_KEY, private_key)
         with open(path, 'w+') as f:
             self.cfg.write(f);
         
