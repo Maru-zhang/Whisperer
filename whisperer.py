@@ -120,8 +120,8 @@ class Whisperer():
         if os.path.exists(path) is False:
             if not os.path.exists(self.workspace):
                 os.mkdir(self.workspace)
-            self.my_gitlab_host = input('请输入您gitlab的地址: ')
-            self.my_gitlab_private_key = input('请输入您gitlab的 private key')
+            self.my_gitlab_host = input('请输入您gitlab的地址(例如https://git.souche-inc.com): ')
+            self.my_gitlab_private_key = input('请输入您gitlab的Private-Key: ')
             self.my_email_address = input('请输入您的邮箱地址: ')
             self.my_email_password = input('请输入您的邮箱密码: ')
             self.my_nickname = input('请输入您的昵称(发送邮件所用): ')
