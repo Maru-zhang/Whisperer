@@ -50,7 +50,7 @@ def auth(email, password):
 @click.argument('key', type=click.STRING)
 def auth_gitlab(host, key):
     w = Whisperer()
-    w.auth_gitlab(host, key)
+    w.update_private_key(host, key)
     click.echo('更新完成')
 
 @cli.command(help='发送指定邮件')
