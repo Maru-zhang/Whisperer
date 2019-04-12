@@ -176,7 +176,8 @@ class Whisperer():
         with open(path, 'a') as f:
             for commit in commits:
                 time = parse(commit.authored_date).strftime('%x %X')
-                commit_detail_array.append(f'| {commit.short_id}|{commit.message.rstrip()}|{time} |\n')
+                msg = commit.message.splitlines()[0]
+                commit_detail_array.append(f'| {commit.short_id}|{msg}|{time} |\n')
                 for item_diff in commit.diff():
                     code_line += self.parser_diff_add_mode(item_diff["diff"])
             f.write('\n### Commit 统计 \n')
